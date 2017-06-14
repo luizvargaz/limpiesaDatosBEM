@@ -4,17 +4,84 @@ library(dplyr)
 library(stringr)
 library(stringi)
 
+
 ##### To set the work directory
-setwd('C:/Users/LVARGAS/Documents/CIMMYT/dataBase/2017/2017-03-utilidad-PIMAF')
+setwd('C:/Users/LVARGAS/Documents/CIMMYT/dataBase/2017/limpieza_Datos_2017/')
+
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Unir los archivos 
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+# Leer cada uno de los libros de excel y obtener sus datos
+carpeta <- paste(c(getwd(), '/descargadosUtilidad/'), collapse="")
+
+# funcion que permite unir los datos de varias hojas contenidas en diferentes archivos de extension .xlsx
+unirExcel <- function(nuevoArchivo, numeroHoja, carpeta){
+        
+        numeroHoja <- 1
+        numeroHoja = as.numeric(numeroHoja)
+        
+        # Obtener los datos del archivo Excel que contiene los nombres de los archivos 
+        # y despues almacenearlos en un vector
+        nombresVector <- list.files(carpeta)
+        
+        
+        # tomar cada uno de los elementos del vector con los nombres de los archivos, para asi generar los nombres de
+        # los archivos al concatenerlos con la cadena .xlsx
+        count = 0
+        for(i in nombresVector){
+                
+                print(i)
+                
+                archivo <- paste(c(carpeta, i), collapse = "")
+                
+                datos <- read.csv(archivo)
+                
+                # Abrir cada archivo y unir el contenido con el resto de los datos
+                if(count == 0){
+                        
+                        unionDatos <- datos
+                        
+                }else{
+                        
+                        unionDatos <- rbind(unionDatos, datos)
+                        
+                }                
+                
+                count = count + 1
+        }
+        
+        ####################
+        
+        ### Procedimiento para eliminar las filas que contengan valores NA en todos sus registros
+        valoresNA <- is.na(unionDatos[,1])
+        unionDatosSinNA <- unionDatos[!valoresNA,]
+        
+        ###################
+        
+        # attributes(unionDatos)
+        # exportar el data frame que contiene los datos que se han almacenado en el objeto unionDatos
+        nuevoArchivo <- c(nuevoArchivo, '.csv')
+        nombreArchivoNuevo <- paste(nuevoArchivo,collapse="")
+        
+        write.csv(unionDatosSinNA , file = nombreArchivoNuevo, row.names = FALSE)
+        
+        
+}
+
+unirExcel('utilidad', 1, carpeta)
+
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ##### Obtener las bases de datos
-utilidadRaw <- read_excel('./descargados/UTILIDAD.xlsx', 'Sheet1')
+utilidadRaw <- read.csv('utilidad.csv')
 dim(utilidadRaw)
-riegos <- read_excel('./descargados/nuevoArchivo.xlsx', '20_riegos_Descripcion')
+riegos <- read_excel('./basedatosBem2017.xlsx', '20_riegos_Descripcion')
 
-rendimientoRaw <- read_excel('./descargados/nuevoArchivo.xlsx', '24_rendimiento')
+rendimientoRaw <- read_excel('./basedatosBem2017.xlsx', '24_rendimiento')
 
-regiones <- read_excel('./descargados/regionesOficiales.xlsx', 1)
+regiones <- read_excel('C:/Users/LVARGAS/Documents/CIMMYT/dataBase/INEGI municipios/regionesOficiales.xlsx', 1)
 
 #### Eliminar registros NA, los registros de Áreas de Impacto y los duplicados
 valoresNA <- is.na(utilidadRaw[,1])
@@ -24,9 +91,9 @@ utilidadDupl <- utilidadNA[!duplicated(utilidadNA[,19]),]
 dim(utilidadDupl)
 
 names(utilidadDupl)
-unique(utilidadDupl$`nb Tipo Parcela`)
+unique(utilidadDupl$nb.Tipo.Parcela)
 
-utilidad <- utilidadDupl[utilidadDupl$`nb Tipo Parcela` != 'Parcela Área de Impacto',]
+utilidad <- utilidadDupl[utilidadDupl$nb.Tipo.Parcela != 'Parcela Área de Impacto',]
 dim(utilidad)
 
 
@@ -39,7 +106,7 @@ length(tipobitRiegos)
 # El resultado se almacena en un vector con los valores TRUE y FALSE
 
 count = 0
-for(tipoBitacora in utilidad$`id Tipo Bitacora`){
+for(tipoBitacora in utilidad$id.Tipo.Bitacora){
         resultado = any(tipobitRiegos == tipoBitacora)
         #print(resultado)
         if(count == 0){
@@ -72,7 +139,7 @@ names(regiones)[1] <- 'id Municipio'
 
 reg <- regiones[, c(1, 4)]
 
-names(utilidad)
+names(utilidad)[24] <- 'id Municipio'
 
 utilidadRegion <- merge(utilidad, reg, by = 'id Municipio', all.x = TRUE)
 dim(utilidadRegion)
@@ -84,15 +151,19 @@ rendimientoNA <- rendimientoRaw[!valoresNA,]
 rendimientoDupl <- unique(rendimientoNA)
 dim(rendimientoDupl)
 
-rendimiento <- rendimientoDupl[rendimientoDupl$`Tipo de parcela (testigo o innovación)` != 'Parcela Área de Impacto',]
+rend <- rendimientoDupl[rendimientoDupl$`Tipo de parcela (testigo o innovación)` != 'Parcela Área de Impacto',]
 
-names(rendimiento)[2] <- 'id Tipo Bitacora'
-dim(rendimiento)
-names(utilidad)
+names(rend)[2] <- 'id Tipo Bitacora'
+dim(rend)
+subRend <- rend$`id Tipo Bitacora`
+rendimiento <- unique(subRend)
+length(rendimiento)
+
+names(utilidad)[19] <- 'id Tipo Bitacora'
 dim(utilidad)
 
 
-utilidadRen <- merge(rendimiento, utilidad, by = 'id Tipo Bitacora', all.x = TRUE)
+utilidadRen <- utilidad <- utilidad[utilidad[,19] %in% rendimiento,]
 dim(utilidadRen) #$$$$$$$$$$$$$$$$$$$
 
 
@@ -123,73 +194,28 @@ extremos <- function(vectorDatos, rendimiento = 'NO'){ # Si es analisis de rendi
 # NOTA: En este caso solo se omiten los valores atípicos inferiores, ya que en la práctica si es posible que algunos productores obtengan 
 # un precio alto por la venta del producto de interés económico cosechado.
 
-#*************************************************************
-#*************************************************************
-# ESCRIBIR ABAJO EL NOMBRE DEL CULTIVO
-cultivo <- 'Maiz'
-# cultivo <- 'Trigo'
-# cultivo <- 'Cebada'
-# cultivo <- 'Frijol'
-# cultivo <- 'Sorgo'
-#*************************************************************
-#*************************************************************
 
-####^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#### Obtener el valor de la variable nomCultivo, de acuerdo a los cultivos registrados
-if(cultivo == 'Maiz'){
-        nomCultivo <- c('Maíz','MAIZ CRIOLLO', 'maiz amarillo', 'maiz grande', 'Maíz tabasqueña')
-        leyenda <- paste('EL cultivo que se analizara es:', cultivo); print(leyenda)
-        
-}else if(cultivo == 'Trigo'){
-        nomCultivo <- 'Trigo'
-        leyenda <- paste('EL cultivo que se analizara es:', cultivo); print(leyenda)
-        
-}else if(cultivo == 'Cebada'){
-        nomCultivo <- 'Cebada'
-        leyenda <- paste('EL cultivo que se analizara es:', cultivo); print(leyenda)
-        
-}else if(cultivo == 'Frijol'){
-        nomCultivo <- 'Frijol'
-        leyenda <- paste('EL cultivo que se analizara es:', cultivo); print(leyenda)
-        
-}else if(cultivo == 'Sorgo'){
-        nomCultivo <- 'Sorgo'
-        leyenda <- paste('EL cultivo que se analizara es:', cultivo); print(leyenda)
-        
-}  
-
-#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-names(utilidadRen)
-utRen <- utilidadRen[utilidadRen[,10] %in% nomCultivo,]
-dim(utRen)
-for(i in utRen$`Nombre del cultivo cosechado`) utRen$`Nombre del cultivo cosechado` <- cultivo
-unique(utRen$`Nombre del cultivo cosechado`)
-
-names(utRen)
-unique(utRen$tipoProduccion)
-valoresNA <- is.na(utRen[,72])
-utRenSinNA <- utRen[!valoresNA,]
+utRenSinNA <- utilidadRen
 #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 names(utRenSinNA)
 
+vectorTipo <- unique(utRenSinNA$tipoProduccion)
+
 conteoParaArchivo <- 0
 
-vectorTipo <- unique(utRenSinNA$tipoProduccion)
-        
 for(tipo in vectorTipo){
-        
         utRenTipOut <- utRenSinNA[utRenSinNA$tipoProduccion == tipo, ]
         dim(utRenTipOut)
         unique(utRenTipOut$tipoProduccion)
         
-        valoresExtremos <- extremos(utRenTipOut$`RENTABILIDAD ($/ha)`)
+        valoresExtremos <- extremos(utRenTipOut$COSTOS.PRODUCCION....ha.)
         
         # ````````````````````````````````````````````````````````````````````````````````````````
         # Encontrar los outliers de un vector de datos, despues almacenalos en una nueva variable
         # ````````````````````````````````````````````````````````````````````````````````````````
         ## Validar si un valor es un outlier, guardar T o F en un vector
         count = 0       
-        for(i in utRenTipOut$`RENTABILIDAD ($/ha)`){
+        for(i in utRenTipOut$COSTOS.PRODUCCION....ha.){
                 if(count == 0){
                         if(i > valoresExtremos[1] | i < valoresExtremos[2]){
                                 esOutlier = TRUE
@@ -216,8 +242,8 @@ for(tipo in vectorTipo){
         
         
         ## Crear una nueva columna en el set de datos con los valores V o F de outliers
-        utRenTipOut$RENTABILIDAD_outlier <- esOutlier
-        utRenTip <- utRenTipOut[utRenTipOut$RENTABILIDAD_outlier == FALSE, ]
+        utRenTipOut$COSTOS_outlier <- esOutlier
+        utRenTip <- utRenTipOut[utRenTipOut$COSTOS_outlier == FALSE, ]
         
         # ````````````````````````````````````````````````````````````````````````````````````````
         
@@ -238,29 +264,38 @@ for(tipo in vectorTipo){
         # Fin de almacenar los subset de datos sin outliers para que al final se escriban en un archivo
         # ````````````````````````````````````````````````````````````````````````````````````````
         
-       
+        
 }
 
 dim(UtilidadFinal)
+names(UtilidadFinal)
+utilidadLimpia <- UtilidadFinal[,c(1, 19, 2:18, 20:27, 51, 52)]
+names(utilidadLimpia)[1] <- 'ID de la bitácora'
+names(utilidadLimpia)[2] <- 'ID de tipo de bitácora'
+
+
+write.csv(utilidadLimpia, file = 'utilidad2016.csv', row.names = FALSE)
+
+
 ############################################################################
 ##################################### PROMEDIOS ############################
 names(UtilidadFinal)
 
-promediosMunicipio <- with(UtilidadFinal, aggregate(`RENTABILIDAD ($/ha)`, by = list(`nb Estado`, `nb Municipio`, Anio, `nb Ciclo`, tipoProduccion), FUN = function(`RENTABILIDAD ($/ha)`) c(Promedio = mean(`RENTABILIDAD ($/ha)`), Conteo = length(`RENTABILIDAD ($/ha)`) )))
+promediosMunicipio <- with(UtilidadFinal, aggregate(`COSTOS PRODUCCION ($/ha)`, by = list(`nb Estado`, `nb Municipio`, Anio, `nb Ciclo`, tipoProduccion), FUN = function(`COSTOS PRODUCCION ($/ha)`) c(Promedio = mean(`COSTOS PRODUCCION ($/ha)`), Conteo = length(`COSTOS PRODUCCION ($/ha)`) )))
 
 names(promediosMunicipio) <- c('Estado', 'Municipio', 'Año', 'Ciclo agrónomico', 'Tipo de producción', 'Costos de produccion ($/ha)')
 
 promediosMunicipio <- promediosMunicipio[,c(3, 4, 1, 2, 5, 6)]
 
 
-promediosEstado <- with(UtilidadFinal, aggregate(`RENTABILIDAD ($/ha)`, by = list(`nb Estado`, Anio, `nb Ciclo`, tipoProduccion), FUN = function(`RENTABILIDAD ($/ha)`) c(Promedio = mean(`RENTABILIDAD ($/ha)`), Conteo = length(`RENTABILIDAD ($/ha)`) )))
+promediosEstado <- with(UtilidadFinal, aggregate(`COSTOS PRODUCCION ($/ha)`, by = list(`nb Estado`, Anio, `nb Ciclo`, tipoProduccion), FUN = function(`COSTOS PRODUCCION ($/ha)`) c(Promedio = mean(`COSTOS PRODUCCION ($/ha)`), Conteo = length(`COSTOS PRODUCCION ($/ha)`) )))
 
 names(promediosEstado) <- c('Estado', 'Año', 'Ciclo agrónomico', 'Tipo de producción', 'Costos de produccion ($/ha)')
 
 promediosEstado <- promediosEstado[,c(3, 4, 1, 2, 5)]
 
 
-promediosHub <- with(UtilidadFinal, aggregate(`RENTABILIDAD ($/ha)`, by = list(`nb Hub`, Anio, `nb Ciclo`, tipoProduccion), FUN = function(`RENTABILIDAD ($/ha)`) c(Promedio = mean(`RENTABILIDAD ($/ha)`), Conteo = length(`RENTABILIDAD ($/ha)`) )))
+promediosHub <- with(UtilidadFinal, aggregate(`COSTOS PRODUCCION ($/ha)`, by = list(`nb Hub`, Anio, `nb Ciclo`, tipoProduccion), FUN = function(`COSTOS PRODUCCION ($/ha)`) c(Promedio = mean(`COSTOS PRODUCCION ($/ha)`), Conteo = length(`COSTOS PRODUCCION ($/ha)`) )))
 
 names(promediosHub) <- c('Hub', 'Año', 'Ciclo agrónomico', 'Tipo de producción', 'Costos de produccion ($/ha))')
 
@@ -275,21 +310,21 @@ promediosHub <- promediosHub[,c(3, 4, 1, 2, 5)]
 
 if(!dir.exists('./salidaCostos')){dir.create('./salidaCostos')}
 
-nombreArchivoMunicipio <- paste('./salidaCostos/', cultivo,'_Utilidad_Municipio','.csv')
+nombreArchivoMunicipio <- paste('./salidaCostos/', cultivo,'_Costos_Municipio','.csv')
 nombreArchivoMunicipio <- str_replace_all(nombreArchivoMunicipio, pattern=" ", repl="")
 write.csv(promediosMunicipio, file = nombreArchivoMunicipio, row.names = FALSE)
 
-nombreArchivoEstado <- paste('./salidaCostos/', cultivo,'_Utilidad_Estado','.csv')
+nombreArchivoEstado <- paste('./salidaCostos/', cultivo,'_Costos_Estado','.csv')
 nombreArchivoEstado <- str_replace_all(nombreArchivoEstado, pattern=" ", repl="")
 write.csv(promediosEstado, file = nombreArchivoEstado, row.names = FALSE)
 
-nombreArchivoHub <- paste('./salidaCostos/', cultivo,'_Utilidad_Hub','.csv')
+nombreArchivoHub <- paste('./salidaCostos/', cultivo,'_Costos_Hub','.csv')
 nombreArchivoHub <- str_replace_all(nombreArchivoHub, pattern=" ", repl="")
 write.csv(promediosHub, file = nombreArchivoHub, row.names = FALSE)
 
-nombreArchivoCom <- paste('./salidaCostos/', cultivo,'_Utilidad_Completa','.csv')
+nombreArchivoCom <- paste('./salidaCostos/', cultivo,'_Costos_Completa','.csv')
 nombreArchivoCom <- str_replace_all(nombreArchivoCom, pattern=" ", repl="")
 write.csv(UtilidadFinal, file = nombreArchivoCom, row.names = FALSE)
 
-eliminadas <- paste('Se eliminaron', numObservacionesTotal - numObservacionesFinal, 'observaciones, de un total de', numObservacionesTotal)
-print(eliminadas)
+#eliminadas <- paste('Se eliminaron', numObservacionesTotal - numObservacionesFinal, 'observaciones, de un total de', numObservacionesTotal)
+#print(eliminadas)
