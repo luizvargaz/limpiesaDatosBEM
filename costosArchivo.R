@@ -269,12 +269,16 @@ for(tipo in vectorTipo){
 
 dim(UtilidadFinal)
 names(UtilidadFinal)
-utilidadLimpia <- UtilidadFinal[,c(1, 19, 2:18, 20:27, 51, 52)]
+utilidadLimpia <- UtilidadFinal[,c(1, 19, 2:18, 20:27, 50, 52)]
 names(utilidadLimpia)[1] <- 'ID de la bitácora'
 names(utilidadLimpia)[2] <- 'ID de tipo de bitácora'
 
 
-write.csv(utilidadLimpia, file = 'utilidad2016.csv', row.names = FALSE)
+if(!dir.exists('./salidaCostos')){dir.create('./salidaCostos')}
+
+nombreArchivo <- paste('./salidaCostos/', 'costos2016.csv')
+nombreArchivo <- str_replace_all(nombreArchivo, pattern=" ", repl="")
+write.csv(utilidadLimpia, file = nombreArchivo, row.names = FALSE)
 
 
 ############################################################################
