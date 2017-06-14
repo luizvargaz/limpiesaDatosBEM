@@ -208,14 +208,14 @@ for(tipo in vectorTipo){
         dim(utRenTipOut)
         unique(utRenTipOut$tipoProduccion)
         
-        valoresExtremos <- extremos(utRenTipOut$COSTOS.PRODUCCION....ha.)
+        valoresExtremos <- extremos(utRenTipOut$RENTABILIDAD....ha.)
         
         # ````````````````````````````````````````````````````````````````````````````````````````
         # Encontrar los outliers de un vector de datos, despues almacenalos en una nueva variable
         # ````````````````````````````````````````````````````````````````````````````````````````
         ## Validar si un valor es un outlier, guardar T o F en un vector
         count = 0       
-        for(i in utRenTipOut$COSTOS.PRODUCCION....ha.){
+        for(i in utRenTipOut$RENTABILIDAD....ha.){
                 if(count == 0){
                         if(i > valoresExtremos[1] | i < valoresExtremos[2]){
                                 esOutlier = TRUE
@@ -242,8 +242,8 @@ for(tipo in vectorTipo){
         
         
         ## Crear una nueva columna en el set de datos con los valores V o F de outliers
-        utRenTipOut$COSTOS_outlier <- esOutlier
-        utRenTip <- utRenTipOut[utRenTipOut$COSTOS_outlier == FALSE, ]
+        utRenTipOut$UTILIDAD_outlier <- esOutlier
+        utRenTip <- utRenTipOut[utRenTipOut$UTILIDAD_outlier == FALSE, ]
         
         # ````````````````````````````````````````````````````````````````````````````````````````
         
@@ -274,7 +274,11 @@ names(utilidadLimpia)[1] <- 'ID de la bitácora'
 names(utilidadLimpia)[2] <- 'ID de tipo de bitácora'
 
 
-write.csv(utilidadLimpia, file = 'utilidad2016.csv', row.names = FALSE)
+if(!dir.exists('./salidaUtilidad')){dir.create('./salidaUtilidad')}
+
+nombreArchivo <- paste('./salidaUtilidad/', 'utilidad2016.csv')
+nombreArchivo <- str_replace_all(nombreArchivo, pattern=" ", repl="")
+write.csv(utilidadLimpia, file = nombreArchivo, row.names = FALSE)
 
 
 ############################################################################
